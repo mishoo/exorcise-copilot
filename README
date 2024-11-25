@@ -1,0 +1,28 @@
+Copilot Key Exorciser for Linux - turn it back into a proper CTRL
+
+Edit copilot.cpp and make sure DEVICE_PATH points to the correct input
+device for your laptop keyboard. Then:
+
+    make
+    sudo setkeycodes 6e 193
+    sudo ./exorcise-copilot
+
+If it works, you're in luck - arrange for it to run at boot time.
+
+Combinations involving left Shift/Meta + right Ctrl will work, but not
+perfectly. At least on my hardware (ASUS M5606WA) I have the following
+issues (where by MOD I mean either Left Shift, Left Meta, or both, and
+by CTRL I mean the damned Copilot key):
+
+- MOD↓ CTRL↓ — if you press both at the exact same time, it's possible
+  that only Right Ctrl will register.
+
+- MOD↓ CTRL↓ CTRL↑ — even if your MOD is still physically down, the
+  hardware emits a MOD↑ event when you release CTRL, and we let it go
+  through; the reason for that is that there will no longer be a MOD↑
+  event when you actually release it (you can use evtest to check it
+  out), and it would remain "down", as far as software is concerned,
+  until you press and release it again. This is so horrible that it
+  took me quite some time to even write it down.
+
+Remember folks, I've been saying this for 20 years: Microsoft is evil.
