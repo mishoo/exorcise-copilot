@@ -17,6 +17,8 @@ using namespace std;
 
 #define DEVICE_PATH "/dev/input/by-path/platform-i8042-serio-0-event-kbd"
 
+bool RIGHTALT = false;
+bool DISABLED = false;
 struct libevdev *dev;
 struct libevdev_uinput *uidev;
 
@@ -39,6 +41,17 @@ void send_key(const KeyEvent &k) {
     libevdev_uinput_write_event(uidev, EV_SYN, SYN_REPORT, 0);
 }
 
+void dump(struct input_event *ev) {
+    KeyEvent k = {
+        .code = ev->code,
+        .value = ev->value,
+        .ts = ev->time.tv_sec + ev->time.tv_usec / 1000000.0d,
+    };
+    fprintf(stderr, "code: %s, value: %d\n",
+            libevdev_event_code_get_name(ev->type, ev->code),
+            ev->value);
+}
+
 void handle(struct input_event *ev) {
     if (ev->type == EV_KEY) {
         KeyEvent k = {
@@ -47,14 +60,28 @@ void handle(struct input_event *ev) {
             .ts = ev->time.tv_sec + ev->time.tv_usec / 1000000.0d,
         };
         if (k.code == KEY_LEFTSHIFT || k.code == KEY_LEFTMETA || k.code == KEY_F23) {
-            // fprintf(stderr, "QUEUING [%f] code: %s, value: %d\n",
-            //         k.ts,
-            //         libevdev_event_code_get_name(ev->type, ev->code),
-            //         ev->value);
             key_queue.push_back(k);
             timerfd_settime(timer_fd, 0, &timeout, NULL);
         } else if (ev->value != 2) {
-            send_key(k);
+            if (k.code == KEY_RIGHTALT) {
+                RIGHTALT = ev->value;
+                if (!DISABLED) {
+                    send_key(k);
+                }
+                return;
+            }
+            if (k.code == KEY_NUMLOCK && ev->value && RIGHTALT) {
+                DISABLED = !DISABLED;
+                //fprintf(stderr, "Keyboard disabled: %d\n", DISABLED);
+                if (DISABLED) {
+                    // lift the modifier
+                    send_key({ .code = KEY_RIGHTALT, .value = 0 });
+                }
+                return;
+            }
+            if (!DISABLED) {
+                send_key(k);
+            }
         }
     }
 }
